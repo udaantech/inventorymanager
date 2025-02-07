@@ -47,15 +47,21 @@ export default function AuthForm({ mode }: AuthFormProps) {
         });
         navigate("/login");
       }
-    } catch (err) {
-      setError(err.message);
+    } catch (err: any) {
+      if (err.message === "Email not confirmed") {
+        setError("Please check your email for the confirmation link");
+      } else {
+        setError(err.message || "An error occurred");
+      }
     }
   };
 
   return (
-    <Card className="w-[400px]">
-      <CardHeader>
-        <CardTitle>{mode === "login" ? "Login" : "Register"}</CardTitle>
+    <Card className="w-[400px] shadow-lg">
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-2xl">
+          {mode === "login" ? "Login" : "Register"}
+        </CardTitle>
         <CardDescription>
           {mode === "login"
             ? "Enter your credentials to access your account"

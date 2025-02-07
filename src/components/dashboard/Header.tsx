@@ -26,7 +26,7 @@ const Header = ({
   branchName = "Main Branch",
   userAvatar = "https://api.dicebear.com/7.x/avataaars/svg?seed=default",
   userName = "John Doe",
-  notificationCount = 3,
+  notificationCount = 0,
   onNotificationClick = () => {},
   onSettingsClick = () => {},
   onHelpClick = () => {},

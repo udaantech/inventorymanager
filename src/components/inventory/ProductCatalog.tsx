@@ -3,70 +3,33 @@ import ProductCard from "./ProductCard";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { Search, Filter } from "lucide-react";
+import { Product, fetchProducts, createInventoryRequest } from "@/lib/products";
+import { useAuth } from "@/lib/auth";
+import { useToast } from "@/components/ui/use-toast";
 
-interface Product {
-  id: string;
-  name: string;
-  image: string;
-  description: string;
-  stockLevel: number;
-  maxRequestLimit: number;
-  price: number;
-  unit: string;
+interface CartItem {
+  productId: string;
+  quantity: number;
 }
 
 interface ProductCatalogProps {
-  products?: Product[];
-  onRequestChange?: (productId: string, quantity: number) => void;
+  onRequestChange: (productId: string, quantity: number) => void;
 }
 
 const ProductCatalog = ({
-  products = [
-    {
-      id: "1",
-      name: "Office Paper",
-      image: "https://images.unsplash.com/photo-1589330694653-ded6df03f754",
-      description: "High-quality A4 printer paper, 500 sheets per ream",
-      stockLevel: 150,
-      maxRequestLimit: 50,
-      price: 4.99,
-      unit: "reams",
-    },
-    {
-      id: "2",
-      name: "Ballpoint Pens",
-      image: "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd",
-      description: "Medium point blue ink pens, pack of 12",
-      stockLevel: 75,
-      maxRequestLimit: 30,
-      price: 3.99,
-      unit: "packs",
-    },
-    {
-      id: "3",
-      name: "Sticky Notes",
-      image: "https://images.unsplash.com/photo-1586892477838-2b96e85e0f96",
-      description: "3x3 inch yellow sticky notes, pack of 100",
-      stockLevel: 25,
-      maxRequestLimit: 20,
-      price: 2.49,
-      unit: "packs",
-    },
-    {
-      id: "4",
-      name: "Stapler",
-      image: "https://images.unsplash.com/photo-1612613524827-904fa4ef1834",
-      description: "Desktop stapler with 20-sheet capacity",
-      stockLevel: 45,
-      maxRequestLimit: 10,
-      price: 8.99,
-      unit: "units",
-    },
-  ],
   onRequestChange = () => {},
 }: ProductCatalogProps) => {
   const [searchTerm, setSearchTerm] = React.useState("");
-  const [filteredProducts, setFilteredProducts] = React.useState(products);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [products, setProducts] = React.useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = React.useState<Product[]>([]);
+  const [cartItems, setCartItems] = React.useState<CartItem[]>([]);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  React.useEffect(() => {
+    fetchProducts().then(setProducts);
+  }, []);
 
   React.useEffect(() => {
     const filtered = products.filter(
@@ -77,8 +40,45 @@ const ProductCatalog = ({
     setFilteredProducts(filtered);
   }, [searchTerm, products]);
 
+  const handleRequestSubmit = async () => {
+    if (!user || cartItems.length === 0) return;
+
+    setIsSubmitting(true);
+    try {
+      await createInventoryRequest(user.id, cartItems);
+      setCartItems([]);
+      toast({
+        title: "Request Submitted",
+        description: "Your inventory request has been submitted successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <div className="w-full h-full bg-gray-50 p-6">
+    <div className="w-full h-full bg-white rounded-lg border shadow-sm p-6">
+      {cartItems.length > 0 && (
+        <div className="mb-6 p-4 bg-primary/5 rounded-lg border">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold">Cart ({cartItems.length} items)</h3>
+              <p className="text-sm text-gray-500">
+                Review your items before submitting the request
+              </p>
+            </div>
+            <Button onClick={handleRequestSubmit} disabled={isSubmitting}>
+              {isSubmitting ? "Submitting..." : "Submit Request"}
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="mb-6 flex items-center justify-between gap-4">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
