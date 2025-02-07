@@ -6,6 +6,10 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import { AuthProvider, useAuth } from "./lib/auth";
+import { Toaster } from "@/components/ui/toaster";
+import DashboardLayout from "./components/dashboard/DashboardLayout";
+import Products from "./pages/dashboard/Products";
+import Inventory from "./pages/dashboard/Inventory";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -37,15 +41,20 @@ function App() {
               path="/dashboard"
               element={
                 <PrivateRoute>
-                  <Home />
+                  <DashboardLayout />
                 </PrivateRoute>
               }
-            />
+            >
+              <Route index element={<Home />} />
+              <Route path="products" element={<Products />} />
+              <Route path="inventory" element={<Inventory />} />
+            </Route>
             {import.meta.env.VITE_TEMPO === "true" && (
               <Route path="/tempobook/*" element={null} />
             )}
           </Routes>
         </Suspense>
+        <Toaster />
       </AuthProvider>
     </BrowserRouter>
   );

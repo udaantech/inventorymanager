@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,6 +28,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
   const [error, setError] = useState("");
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +40,11 @@ export default function AuthForm({ mode }: AuthFormProps) {
         navigate("/dashboard");
       } else {
         await signUp(email, password, role);
+        toast({
+          title: "Account created successfully!",
+          description: "Please login with your credentials.",
+          duration: 5000,
+        });
         navigate("/login");
       }
     } catch (err) {
