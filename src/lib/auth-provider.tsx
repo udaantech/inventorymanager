@@ -19,46 +19,82 @@ export default function AuthProvider({
   const navigate = useNavigate();
 
   useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session) {
+    const initializeAuth = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) {
+          setLoading(false);
+          return;
+        }
+
         const { data: userData } = await supabase
           .from("users")
           .select("*")
           .eq("id", session.user.id)
           .single();
 
-        setUser(userData);
-      } else {
-        setUser(null);
+        if (userData) {
+          setUser(userData);
+        }
+      } catch (error) {
+        console.error("Error initializing auth:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
+    };
+
+    initializeAuth();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_IN" && session?.user) {
+        const { data: userData } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", session.user.id)
+          .single();
+
+        if (userData) {
+          setUser(userData);
+        }
+      } else if (event === "SIGNED_OUT") {
+        setUser(null);
+        navigate("/");
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [navigate]);
 
   const signIn = async (email: string, password: string) => {
-    const {
-      error,
-      data: { user: authUser },
-    } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) throw error;
+    const { data: authData, error: signInError } =
+      await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (authUser) {
-      const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", authUser.id)
-        .single();
+    if (signInError) throw signInError;
+    if (!authData.user) throw new Error("No user returned from sign in");
 
-      if (userError) throw userError;
-      setUser(userData);
+    // Fetch user profile
+    const { data: userData, error: profileError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", authData.user.id)
+      .single();
+
+    if (profileError || !userData) {
+      await supabase.auth.signOut(); // Sign out if profile not found
+      throw new Error(
+        "User profile not found. Please verify your email first.",
+      );
     }
+
+    setUser(userData);
+    return userData;
   };
 
   const signUp = async (
@@ -66,27 +102,48 @@ export default function AuthProvider({
     password: string,
     role: "branch_manager" | "hq_admin",
   ) => {
-    const { error: signUpError, data } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          role: role,
-        },
-      },
-    });
-    if (signUpError) throw signUpError;
-
-    if (data.user) {
-      const { error: insertError } = await supabase.from("users").insert([
+    try {
+      // Create auth user
+      const { data: authData, error: signUpError } = await supabase.auth.signUp(
         {
-          id: data.user.id,
           email,
-          role,
+          password,
+          options: {
+            data: { role },
+          },
         },
-      ]);
+      );
 
-      if (insertError) throw insertError;
+      if (signUpError) throw signUpError;
+      if (!authData.user) throw new Error("No user returned from sign up");
+
+      // Create user profile using the service role client
+      const { data: profileData, error: profileError } = await supabase
+        .from("users")
+        .insert([
+          {
+            id: authData.user.id,
+            email,
+            role,
+          },
+        ])
+        .select()
+        .single();
+
+      if (profileError) {
+        console.error("Error creating profile:", profileError);
+        throw new Error("Failed to create user profile");
+      }
+
+      return {
+        user: authData.user,
+        profile: profileData,
+        needsEmailConfirmation: true, // Supabase requires email confirmation by default
+        profileCreated: true,
+      };
+    } catch (error) {
+      console.error("Signup error:", error);
+      throw error;
     }
   };
 

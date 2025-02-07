@@ -41,18 +41,24 @@ export default function AuthForm({ mode }: AuthFormProps) {
       } else {
         await signUp(email, password, role);
         toast({
-          title: "Account created successfully!",
-          description: "Please login with your credentials.",
-          duration: 5000,
+          title: "Account created!",
+          description: "Please check your email to confirm your account.",
         });
         navigate("/login");
       }
     } catch (err: any) {
-      if (err.message === "Email not confirmed") {
-        setError("Please check your email for the confirmation link");
-      } else {
-        setError(err.message || "An error occurred");
-      }
+      console.error("Auth error:", err);
+      const errorMessage =
+        err.message === "User already registered"
+          ? "This email is already registered. Please log in instead."
+          : err.message || "An error occurred";
+
+      setError(errorMessage);
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     }
   };
 
